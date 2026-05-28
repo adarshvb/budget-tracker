@@ -110,6 +110,11 @@
       color: #57606a;
       margin-top: 2px;
     }
+    .expense-date {
+      font-size: 11px;
+      color: #8b949e;
+      margin-top: 2px;
+    }
     .expense-right {
       display: flex;
       align-items: center;
@@ -215,6 +220,7 @@
         description: description.trim(),
         amount: parseFloat(amount),
         category: category,
+        date: new Date().toISOString(), // ISO date so it sorts and parses cleanly
       };
       expenses.push(newExpense);
       saveExpenses();
@@ -260,6 +266,13 @@
           cat.textContent = expense.category;
           info.appendChild(desc);
           info.appendChild(cat);
+
+          if (expense.date) {
+            const dateEl = document.createElement("span");
+            dateEl.className = "expense-date";
+            dateEl.textContent = new Date(expense.date).toLocaleDateString();
+            info.appendChild(dateEl);
+          }
 
           const right = document.createElement("div");
           right.className = "expense-right";
