@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal Budget Tracker</title>
+  <style>
+    /* --- Basic page styling --- */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f4f6f8;
+      color: #222;
+      margin: 0;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+    }
+    .app {
+      width: 100%;
+      max-width: 560px;
+    }
+    h1 {
+      margin: 0 0 16px 0;
+      font-size: 24px;
+    }
+
+    /* --- The "card" containers --- */
+    .card {
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      margin-bottom: 16px;
+    }
+
+    /* --- Total display --- */
+    .total {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 18px;
+    }
+    .total-amount {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1a7f37;
+    }
+
+    /* --- Form --- */
+    form {
+      display: grid;
+      gap: 10px;
+    }
+    label {
+      font-size: 13px;
+      color: #555;
+      font-weight: 600;
+    }
+    input, select, button {
+      font: inherit;
+      padding: 10px 12px;
+      border-radius: 6px;
+      border: 1px solid #d0d7de;
+      width: 100%;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #0969da;
+    }
+    button.primary {
+      background: #0969da;
+      color: white;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+    button.primary:hover {
+      background: #0860c4;
+    }
+
+    /* --- Expense list --- */
+    .expense-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .expense-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #eaeef2;
+    }
+    .expense-item:last-child {
+      border-bottom: none;
+    }
+    .expense-info {
+      display: flex;
+      flex-direction: column;
+    }
+    .expense-desc {
+      font-weight: 600;
+    }
+    .expense-category {
+      font-size: 12px;
+      color: #57606a;
+      margin-top: 2px;
+    }
+    .expense-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .expense-amount {
+      font-weight: 600;
+    }
+    button.delete {
+      background: #ffe5e5;
+      color: #b40000;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    button.delete:hover {
+      background: #ffd0d0;
+    }
+    .empty {
+      color: #888;
+      text-align: center;
+      padding: 16px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Personal Budget Tracker</h1>
+
+    <!-- Total card -->
+    <div class="card total">
+      <span>Total spent</span>
+      <span class="total-amount" id="totalAmount">$0.00</span>
+    </div>
+
+    <!-- Add expense form -->
+    <div class="card">
+      <form id="expenseForm">
+        <div>
+          <label for="description">Description</label>
+          <input type="text" id="description" placeholder="e.g. Coffee" required />
+        </div>
+        <div>
+          <label for="amount">Amount ($)</label>
+          <input type="number" id="amount" placeholder="0.00" step="0.01" min="0.01" required />
+        </div>
+        <div>
+          <label for="category">Category</label>
+          <select id="category" required>
+            <option value="Food">Food</option>
+            <option value="Transport">Transport</option>
+            <option value="Housing">Housing</option>
+            <option value="Entertainment">Entertainment</option>
+            <option value="Shopping">Shopping</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <button type="submit" class="primary">Add expense</button>
+      </form>
+    </div>
+
+    <!-- Expense list -->
+    <div class="card">
+      <ul class="expense-list" id="expenseList"></ul>
+    </div>
+  </div>
+
+  <script>
+    // -------------------------------------------------------------------
+    // STATE: the single source of truth — an array of expense objects.
+    // Each expense looks like: { id, description, amount, category }
+    // -------------------------------------------------------------------
+    const STORAGE_KEY = "budget-tracker-expenses";
+    let expenses = loadExpenses();
+
+    // -------------------------------------------------------------------
+    // STORAGE: read/write the array to localStorage so it survives reloads.
+    // localStorage only stores strings, so we use JSON.stringify / parse.
+    // -------------------------------------------------------------------
+    function loadExpenses() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return [];
+      }
+    }
+
+    function saveExpenses() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
+    }
+
+    // -------------------------------------------------------------------
+    // ACTIONS: the things the user can do.
+    // Each one updates the array, saves, and re-renders.
+    // -------------------------------------------------------------------
+    function addExpense(description, amount, category) {
+      const newExpense = {
+        id: Date.now(),               // unique id based on timestamp
+        description: description.trim(),
+        amount: parseFloat(amount),
+        category: category,
+      };
+      expenses.push(newExpense);
+      saveExpenses();
+      render();
+    }
+
+    function deleteExpense(id) {
+      expenses = expenses.filter(e => e.id !== id);
+      saveExpenses();
+      render();
+    }
+
+    // -------------------------------------------------------------------
+    // RENDER: rebuild the UI from the current `expenses` array.
+    // Called once on load, and every time the data changes.
+    // -------------------------------------------------------------------
+    function render() {
+      const list = document.getElementById("expenseList");
+      const totalEl = document.getElementById("totalAmount");
+
+      // Clear the existing list
+      list.innerHTML = "";
+
+      // Empty state
+      if (expenses.length === 0) {
+        const li = document.createElement("li");
+        li.className = "empty";
+        li.textContent = "No expenses yet. Add one above!";
+        list.appendChild(li);
+      } else {
+        // Build a row for each expense
+        for (const expense of expenses) {
+          const li = document.createElement("li");
+          li.className = "expense-item";
+
+          const info = document.createElement("div");
+          info.className = "expense-info";
+          const desc = document.createElement("span");
+          desc.className = "expense-desc";
+          desc.textContent = expense.description;
+          const cat = document.createElement("span");
+          cat.className = "expense-category";
+          cat.textContent = expense.category;
+          info.appendChild(desc);
+          info.appendChild(cat);
+
+          const right = document.createElement("div");
+          right.className = "expense-right";
+          const amt = document.createElement("span");
+          amt.className = "expense-amount";
+          amt.textContent = "$" + expense.amount.toFixed(2);
+          const delBtn = document.createElement("button");
+          delBtn.className = "delete";
+          delBtn.textContent = "Delete";
+          delBtn.addEventListener("click", () => deleteExpense(expense.id));
+          right.appendChild(amt);
+          right.appendChild(delBtn);
+
+          li.appendChild(info);
+          li.appendChild(right);
+          list.appendChild(li);
+        }
+      }
+
+      // Update the running total
+      const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+      totalEl.textContent = "$" + total.toFixed(2);
+    }
+
+    // -------------------------------------------------------------------
+    // EVENT WIRING: connect the form submit to addExpense.
+    // -------------------------------------------------------------------
+    document.getElementById("expenseForm").addEventListener("submit", function (event) {
+      event.preventDefault(); // stop the browser from reloading the page
+
+      const descInput = document.getElementById("description");
+      const amountInput = document.getElementById("amount");
+      const categoryInput = document.getElementById("category");
+
+      addExpense(descInput.value, amountInput.value, categoryInput.value);
+
+      // Clear the form for the next entry
+      descInput.value = "";
+      amountInput.value = "";
+      categoryInput.selectedIndex = 0;
+      descInput.focus();
+    });
+
+    // First render when the page loads
+    render();
+  </script>
+</body>
+</html>
